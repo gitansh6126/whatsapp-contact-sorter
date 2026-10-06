@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WhatsApp Contact Sorter</title>
+<style>
+  :root{
+    --bg:#0f1420; --panel:#171d2e; --panel2:#1e2640; --border:#2a3350;
+    --text:#e8ecf7; --muted:#93a0c0; --accent:#25d366; --accent2:#128c7e;
+    --blue:#4f7cff; --danger:#ff5c5c; --shadow:0 8px 24px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box; margin:0; padding:0}
+  body{background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; min-height:100vh}
+  header{padding:18px 22px; display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+    border-bottom:1px solid var(--border); background:var(--panel); position:sticky; top:0; z-index:50}
+  header h1{font-size:18px; font-weight:700; letter-spacing:.3px}
+  header .sub{font-size:12px; color:var(--muted)}
+  .spacer{flex:1}
+  button{cursor:pointer; border:none; border-radius:8px; padding:9px 16px; font-size:13px; font-weight:600;
+    background:var(--panel2); color:var(--text); border:1px solid var(--border); transition:.15s}
+  button:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent); color:#0b2b1c; border-color:var(--accent)}
+  button.primary:hover{background:#2ee36e}
+  button.danger{border-color:var(--danger); color:var(--danger)}
+  button.ghost{background:transparent}
+  .logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--accent),var(--accent2));
+    display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;color:#04210f}
+  main{display:flex; gap:16px; padding:16px; align-items:flex-start; height:calc(100vh - 70px)}
+  /* left: controls + pool */
+  .side{width:320px; flex-shrink:0; display:flex; flex-direction:column; gap:14px; height:100%}
+  .card{background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:14px; box-shadow:var(--shadow)}
+  .card h3{font-size:13px; color:var(--muted); text-transform:uppercase; letter-spacing:.8px; margin-bottom:10px;
+    display:flex; justify-content:space-between; align-items:center}
+  .card h3 .count{background:var(--panel2); border-radius:20px; padding:2px 10px; font-size:11px; color:var(--accent)}
+  textarea, input, select{width:100%; background:var(--panel2); color:var(--text); border:1px solid var(--border);
+    border-radius:8px; padding:10px; font-size:13px; font-family:inherit}
+  textarea{min-height:120px; resize:vertical}
+  label{font-size:11px; color:var(--muted); display:block; margin:8px 0 4px}
+  .row{display:flex; gap:8px; margin-top:10px}
+  .row button{flex:1}
+  .toolbar{display:flex; gap:6px; flex-wrap:wrap}
+  .toolbar button{flex:1; min-width:120px}
+  /* pool list */
+  .pool{flex:1; overflow-y:auto}
+  .chip{display:flex; align-items:center; gap:10px; background:var(--panel2); border:1px solid var(--border);
+    border-radius:8px; padding:9px 12px; font-size:13px; margin-bottom:8px; user-select:none; cursor:grab}
+  .chip.dragging{opacity:.5; transform:scale(.98)}
+  .chip.selected{outline:2px solid var(--accent)}
+  .chip .name{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .chip .muted{font-size:11px; color:var(--muted)}
+  .chip small.badge{font-size:10px; background:var(--blue); color:#fff; border-radius:6px; padding:2px 6px}
+  .chip:hover{border-color:var(--accent)}
+  .empty{color:var(--muted); font-size:13px; text-align:center; padding:30px 10px}
+  /* categories zone */
+  .cats{flex:1; display:flex; gap:14px; overflow-x:auto; height:100%; align-items:stretch}
+  .cat{flex:1; min-width:230px; max-width:270px; height:100%; display:flex; flex-direction:column;
+    background:var(--panel); border:1px solid var(--border); border-radius:12px; overflow:hidden}
+  .cat.droptarget{border-color:var(--accent); background:#1a2b20}
+  .cat .cathead{padding:10px 12px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:8px; background:var(--panel2)}
+  .cat .cathead .dot{width:10px;height:10px;border-radius:50%; flex-shrink:0}
+  .cat .catname{flex:1; font-size:13px; font-weight:700; border:none; background:transparent; color:var(--text); width:90px}
+  .cat .catcount{font-size:11px; color:var(--muted); background:var(--panel); border-radius:20px; padding:2px 8px}
+  .cat .catbody{flex:1; overflow-y:auto; padding:10px; min-height:100px}
+  .cat.droptarget .catbody{outline:2px dashed var(--accent); outline-offset:-6px; border-radius:8px}
+  .cat.addbtn{border:2px dashed var(--border); background:transparent; color:var(--muted); font-size:22px;
+    display:flex; align-items:center; justify-content:center; cursor:pointer}
+  .cat.addbtn:hover{border-color:var(--accent); color:var(--accent)}
+  /* toast */
+  #toast{position:fixed; bottom:22px; left:50%; transform:translateX(-50%); background:#222c45; border:1px solid var(--accent);
+    padding:11px 20px; border-radius:10px; font-size:13px; display:none; box-shadow:var(--shadow); z-index:99}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">W</div>
+  <div>
+    <h1>WhatsApp Contact Sorter</h1>
+    <div class="sub">Paste names → drag &amp; drop into categories → save / export lists</div>
+  </div>
+  <div class="spacer"></div>
+  <button class="primary" onclick="saveState()">💾 Save</button>
+  <button onclick="exportCSV()">⬇ Export CSV</button>
+  <button onclick="exportLists()">📄 Export Lists</button>
+  <button onclick="resetAll()" class="danger">Reset</button>
+</header>
+
+<main>
+  <div class="side">
+    <div class="card">
+      <h3>Import contacts <span class="count" id="totalCount">0</span></h3>
+      <label for="ta">Paste names (one per line) OR paste a full WhatsApp export (.txt) below — names get extracted automatically</label>
+      <textarea id="ta" placeholder="Gitan&#39;s mom&#10;Rahul&#10;..."></textarea>
+      <div class="row">
+        <button onclick="importNames()">+ Add</button>
+        <button onclick="autoExtract()">⚙ Extract names</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Categories</h3>
+      <div class="row">
+        <input id="newCat" placeholder="e.g. Family, Friends, Work, Customers">
+        <button onclick="addCategory()">+ Add</button>
+      </div>
+    </div>
+
+    <div class="card toolbar" style="flex:none">
+      <button onclick="addPreset('Personal')">🏠 Personal</button>
+      <button onclick="addPreset('Business')">💼 Business</button>
+    </div>
+
+    <div class="card pool">
+      <h3>Unassigned contacts</h3>
+      <div id="poolList"></div>
+    </div>
+  </div>
+
+  <div class="cats" id="cats"></div>
+</main>
+
+<div id="toast"></div>
+
+<script>
+// ---------- state ----------
+const contactCols = [
+  {id:'__pool__', name:'Unassigned', color:'#93a0c0'}
+];
+let contacts = []; // {name, cat}
+let selected = null; // name id
+let savedColorOrder = {};
+
+// ---------- helpers ----------
+const $ = s => document.querySelector(s);
+function uid(){ return Math.random().toString(36).slice(2,9); }
+function toast(msg){
+  const t = $('#toast'); t.textContent = msg; t.style.display='block';
+  clearTimeout(t._h); t._h = setTimeout(()=>t.style.display='none', 2200);
+}
+function esc(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function addCategory(name, color){
+  if(!name.trim()){ toast('Enter a category name'); return; }
+  if(contactCols.some(c=>c.name.toLowerCase()===name.trim().toLowerCase())){ toast('Category already exists'); return; }
+  color = color || '#'+Math.floor(Math.random()*16777215).toString(16).padStart(6,'0');
+  contactCols.push({id:uid(), name:name.trim(), color});
+  if(savedColorOrder[name]) contactCols[contactCols.length-1].color = savedColorOrder[name];
+  const d=$('#newCat'); if(d){d.value='';}
+  saveState();
+  render();
+}
+function addPreset(p){
+  if(p==='Personal'){ ['Family','Friends','Work'].forEach(n=>{ if(!contactCols.some(c=>c.name===n)) addCategory(n); }); }
+  else ['Customers','Leads','Suppliers'].forEach(n=>{ if(!contactCols.some(c=>c.name===n)) addCategory(n); });
+  render();
+}
+
+function importNames(){
+  const txt = $('#ta').value;
+  if(!txt.trim()){ toast('Nothing to add'); return; }
+  const names = txt.split(/\r?\n|\u2028|\u2029/).map(s=>s.trim()).filter(Boolean);
+  let added=0;
+  names.forEach(n=>{
+    if(!contacts.some(c=>c.name===n)){ contacts.push({name:n, cat:'__pool__'}); added++; }
+  });
+  $('#ta').value='';
+  toast(added? 'Added '+added+' contacts':'No new contacts (already present)');
+  saveState(); render();
+}
+
+// Extract names from a WhatsApp chat export (.txt)
+function autoExtract(){
+  const txt = $('#ta').value;
+  if(!txt.trim()){ toast('Paste a chat export first'); return; }
+  const names = new Set();
+  // Lines like: [12/08/24, 3:45:12 PM] Name: message   OR   Name (Timestamp): msg
+  const re = /^\[[^\]]+\]\s+([^:]+?):\s/m;
+  const re2 = /^([^\[\n][^\n]*?)\s*\((\d{1,2}[\/.-])[\s\S]*?\):\s/m;
+  txt.split(/\r?\n/).forEach(line=>{
+    let m = line.match(re) || line.match(re2);
+    if(m){
+      let n = m[1].trim().replace(/\+91|\+1|\+44/,'').trim();
+      if(n && !/Messages and calls|end-to-end/i.test(n) && n.length<60) names.add(n);
+    }
+  });
+  let added=0;
+  names.forEach(n=>{ if(!contacts.some(c=>c.name===n)){ contacts.push({name:n,cat:'__pool__'}); added++; } });
+  $('#ta').value='';
+  toast(added? 'Extracted '+added+' unique names from chat':'No names found — try the export method');
+  saveState(); render();
+}
+
+// ---------- drag & drop ----------
+let dragId=null;
+function dragStart(e, name){
+  dragId = name;
+  e.dataTransfer.setData('text/plain', name);
+  e.target.classList.add('dragging');
+  e.dataTransfer.effectAllowed='move';
+}
+function dragEnd(e){ e.target.classList.remove('dragging'); }
+function dragOver(e){ e.preventDefault(); e.dataTransfer.dropEffect='move'; }
+function dropOnCat(e, catId){
+  e.preventDefault();
+  const name = dragId || e.dataTransfer.getData('text/plain');
+  if(!name) return;
+  moveTo(name, catId);
+  dragId=null;
+}
+function moveTo(name, catId){
+  const c = contacts.find(x=>x.name===name); if(!c) return;
+  c.cat = catId;
+  moveSelected(name, catId);
+  saveState(); render();
+}
+// select-then-click fallback (works on touch too)
+function selClick(name){
+  if(selected && selected!==name){ // clicking a 2nd item clears
+    const prev=$('#chip-'+selected); if(prev) prev.classList.remove('selected');
+  }
+  selected = (selected===name)? null : name;
+  const el=$('#chip-'+name); if(el) el.classList.toggle('selected', selected===name);
+}
+function assignToCat(catId){
+  if(!selected){ toast('Tap a contact first'); return; }
+  moveTo(selected, catId);
+  selected=null;
+}
+
+function removeContact(name){
+  contacts = contacts.filter(c=>c.name!==name);
+  if(selected===name) selected=null;
+  saveState(); render();
+}
+function renameCat(id, e){
+  const col=contactCols.find(c=>c.id===id); if(!col) return;
+  col.name = e.target.textContent.trim();
+  saveState(); render();
+}
+function removeCat(id){
+  if(!confirm('Remove this category? Its contacts will move back to Unassigned.')) return;
+  contacts.forEach(c=>{ if(c.cat===id) c.cat='__pool__'; });
+  const i=contactCols.findIndex(c=>c.id===id);
+  if(i>-1) { savedColorOrder[contactCols[i].name]=contactCols[i].color; contactCols.splice(i,1); }
+  saveState(); render();
+}
+
+// ---------- render ----------
+function render(){
+  // per-cat names
+  const byCat={};
+  contacts.forEach(c=>{ (byCat[c.cat]=byCat[c.cat]||[]).push(c); });
+  // pool
+  const pool = byCat['__pool__']||[];
+  $('#totalCount').textContent = contacts.length;
+  $('#poolList').innerHTML = pool.length
+    ? pool.map(c=>`<div class="chip" id="chip-${esc(c.name)}" draggable="true"
+        ondragstart="dragStart(event,'${esc(c.name)}')" ondragend="dragEnd(event)"
+        onclick="selClick('${esc(c.name)}')">
+        <span class="name">${esc(c.name)}</span>
+        <button class="ghost" title="Remove" onclick="event.stopPropagation();removeContact('${esc(c.name)}')">✕</button>
+      </div>`).join('')
+    : `<div class="empty">No unassigned contacts.<br>${contacts.length? 'All categorized 🎉': 'Add names above first.'}</div>`;
+  // categories
+  $('#cats').innerHTML = contactCols.filter(c=>c.id!=='__pool__').map(col=>{
+    const list = byCat[col.id]||[];
+    return `<div class="cat" ondragover="dragOver(event)" ondrop="dropOnCat(event,'${col.id}')">
+      <div class="cathead">
+        <span class="dot" style="background:${col.color}"></span>
+        <input class="catname" value="${esc(col.name)}" onchange="renameCat('${col.id}',event)" title="${esc(col.name)}">
+        <span class="catcount">${list.length}</span>
+        <button class="ghost" title="Remove category" onclick="removeCat('${col.id}')">🗑</button>
+      </div>
+      <div class="catbody" ondragover="dragOver(event)">
+        ${list.map(c=>`<div class="chip" draggable="true" ondragstart="dragStart(event,'${esc(c.name)}')"
+            ondragend="dragEnd(event)" ondblclick="removeContact('${esc(c.name)}')" title="Double-click to unassign">
+            <span class="name">${esc(c.name)}</span>
+          </div>`).join('')}
+        ${list.length?'':'<div class="empty">Drop contacts here</div>'}
+      </div>
+    </div>`;
+  }).join('') + `<div class="cat addbtn" onclick="promptCat()" title="Add category">+<br><span style="font-size:13px">Category</span></div>`;
+}
+function promptCat(){
+  const n = prompt('New category name:');
+  if(n && n.trim()) addCategory(n.trim());
+}
+
+// ---------- persistence ----------
+function saveState(){
+  localStorage.setItem('wac-sorter-v1', JSON.stringify({cols:contactCols, contacts, savedColorOrder}));
+  toast('Saved');
+}
+function loadState(){
+  const raw = localStorage.getItem('wac-sorter-v1');
+  if(!raw) return;
+  try{
+    const d = JSON.parse(raw);
+    if(d.cols) { contactCols.length=0; d.cols.forEach(c=>contactCols.push(c)); }
+    if(d.contacts) contacts = d.contacts;
+    if(d.savedColorOrder) Object.assign(savedColorOrder, d.savedColorOrder);
+  }catch(e){}
+}
+
+// ---------- exports ----------
+function exportCSV(){
+  if(!contacts.length){ toast('Nothing to export'); return; }
+  const csv = ['name,category'].concat(contacts.map(c=>{
+    const col=contactCols.find(x=>x.id===c.cat);
+    return `"${c.name.replace(/"/g,'""')}","${col?col.name:'Unassigned'}"`;
+  })).join('\n');
+  download('whatsapp-contacts.csv', csv, 'text/csv');
+  toast('CSV downloaded');
+}
+function exportLists(){
+  if(!contacts.length){ toast('Nothing to export'); return; }
+  let out='';
+  contactCols.filter(c=>c.id!=='__pool__').forEach(col=>{
+    const list=contacts.filter(c=>c.cat===col.id);
+    if(!list.length) return;
+    out += `# ${col.name.toUpperCase()} (${list.length})\n` + list.map(c=>c.name).join('\n') + '\n\n';
+  });
+  const un=contacts.filter(c=>c.cat==='__pool__');
+  if(un.length) out += `# UNASSIGNED (${un.length})\n`+un.map(c=>c.name).join('\n');
+  download('whatsapp-contact-lists.txt', out, 'text/plain');
+  toast('Lists downloaded');
+}
+function download(fname, content, mime){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([content],{type:mime}));
+  a.download=fname; a.click(); URL.revokeObjectURL(a.href);
+}
+function resetAll(){
+  if(!confirm('Reset everything? All contacts and categories will be cleared.')) return;
+  contacts=[]; selected=null;
+  contactCols.length=0; contactCols.push({id:'__pool__',name:'Unassigned',color:'#93a0c0'});
+  localStorage.removeItem('wac-sorter-v1');
+  render(); toast('Reset');
+}
+
+// ---------- init ----------
+loadState();
+render();
+// auto-save when leaving so nothing is lost
+window.addEventListener('beforeunload', ()=>localStorage.setItem('wac-sorter-v1', JSON.stringify({cols:contactCols, contacts, savedColorOrder})));
+</script>
+</body>
+</html>
